@@ -292,7 +292,8 @@ module Appello
     def transport
       @transport ||= NetHttpTransport.new(
         base_url: @base_url || raise(ConfigurationError, "base_url が設定されていません"),
-        open_timeout: @config.open_timeout, read_timeout: @config.read_timeout
+        open_timeout: @config.open_timeout, read_timeout: @config.read_timeout,
+        allow_insecure_http: @config.allow_insecure_http
       )
     end
 

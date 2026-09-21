@@ -19,8 +19,11 @@ module Appello
   class NetHttpTransport
     NETWORK_ERRORS = [ SystemCallError, SocketError, Timeout::Error, OpenSSL::SSL::SSLError, EOFError, IOError ].freeze
 
-    def initialize(base_url:, open_timeout:, read_timeout:)
+    LOCAL_HOSTS = %w[localhost 127.0.0.1 ::1 [::1]].freeze
+
+    def initialize(base_url:, open_timeout:, read_timeout:, allow_insecure_http: false)
       @base_uri = URI.parse(base_url)
+      reject_plain_http! unless allow_insecure_http
       @open_timeout = open_timeout
       @read_timeout = read_timeout
     end
@@ -39,6 +42,21 @@ module Appello
       Response.new(status: response.code.to_i, body: response.body)
     rescue *NETWORK_ERRORS => e
       raise ConnectionError, "#{e.class}: #{e.message}"
+    end
+
+    private
+
+    # http:// だと API キーが平文で流れる。サーバーが https へリダイレクトしても、その時点でキーは漏れている。
+    # 送る前に止める。手元での開発 (localhost) だけは許す。
+    def reject_plain_http!
+      return if @base_uri.scheme == "https"
+
+      # URI はスキームを小文字に正規化するが、ホスト名は書かれたままの大文字・小文字で返す。
+      host = @base_uri.host.to_s.downcase
+      return if LOCAL_HOSTS.include?(host) || host.end_with?(".localhost")
+
+      raise ConfigurationError, "base_url は https:// で指定してください (#{@base_uri.scheme}://#{@base_uri.host})。" \
+                                "検証環境などで平文を許す場合は config.allow_insecure_http = true"
     end
   end
 end

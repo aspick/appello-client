@@ -7,7 +7,7 @@
 ## インストール
 
 ```ruby
-gem "appello-client", github: "aspick/appello-client", tag: "v0.1.0"
+gem "appello-client", github: "aspick/appello-client", tag: "v0.1.1"
 ```
 
 - 対応: Ruby 3.4 以上。実行時の依存 gem なし (HTTP は標準ライブラリ)
@@ -44,6 +44,7 @@ Appello.client.members(group.appello_id, status: "active", bound: false)
 
 - POST には `Idempotency-Key` を自動で付けるので、タイムアウト後のリトライで二重作成にならない。ジョブの再実行でも同じ結果にしたいときは `idempotency_key:` を自分で渡す
 - 接続エラーと 429 / 502 / 503 / 504 は `max_retries` 回 (既定 2) までリトライする
+- `base_url` は `https://` のみ受け付ける (API キーを平文で流さないため)。`localhost` は例外。検証環境などで平文を許す場合は `config.allow_insecure_http = true`
 
 ### エラー
 
