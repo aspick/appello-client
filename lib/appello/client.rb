@@ -59,6 +59,31 @@ module Appello
 
     # --- グループ ---
 
+    # このクライアントが使っている (バインディングを持つ) グループのすべて。ページをまたいで最後まで辿る。
+    # 使うのをやめたグループは含まれない。手元のデータと突き合わせて、消し忘れを見つけるのに使う。
+    def groups(page_size: nil)
+      each_group(page_size: page_size).to_a
+    end
+
+    # groups と同じものを 1 件ずつ渡す (全件をメモリに載せない)。ブロックなしなら Enumerator を返す。
+    def each_group(page_size: nil, &block)
+      return enum_for(:each_group, page_size: page_size) unless block
+
+      after = nil
+      loop do
+        page = groups_page(after: after, limit: page_size)
+        page.fetch("groups").each(&block)
+        break unless page["has_more"]
+
+        after = page.fetch("next_after")
+      end
+    end
+
+    # { "groups" => [...], "next_after" => String か nil, "has_more" => true/false }。通常は groups / each_group 経由で使う。
+    def groups_page(after: nil, limit: nil)
+      get("/v1/groups", { after: after, limit: limit }.compact)
+    end
+
     def group(id)
       get("/v1/groups/#{escape(id)}")
     end

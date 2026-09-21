@@ -40,6 +40,10 @@ Appello.client.as_system.upsert_member_ref(group.id, member.id, name: member.nam
 
 # 読み取りは操作者なしで呼べる
 Appello.client.members(group.appello_id, status: "active", bound: false)
+
+# このクライアントが使っているグループのすべて (ページングは内部で辿る)。手元のデータとの突き合わせに使う
+Appello.client.groups
+Appello.client.each_group { |group| ... } # 全件をメモリに載せたくないとき
 ```
 
 - POST には `Idempotency-Key` を自動で付けるので、タイムアウト後のリトライで二重作成にならない。ジョブの再実行でも同じ結果にしたいときは `idempotency_key:` を自分で渡す

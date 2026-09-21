@@ -31,6 +31,27 @@ RSpec.describe Appello::Client do
     expect(transport.requests.first.query).to eq(status: "active,on_leave", bound: "false")
   end
 
+  it "グループの一覧は、最後のページまで辿って 1 つにまとめる" do
+    transport = FakeTransport.new(
+      FakeTransport.json(200, { "groups" => [ { "id" => "g1" }, { "id" => "g2" } ], "next_after" => "g2", "has_more" => true }),
+      FakeTransport.json(200, { "groups" => [ { "id" => "g3" } ], "next_after" => "g3", "has_more" => false })
+    )
+
+    expect(build(transport).groups(page_size: 2).map { |group| group["id"] }).to eq(%w[g1 g2 g3])
+    expect(transport.requests.map(&:path)).to eq(%w[/v1/groups /v1/groups])
+    expect(transport.requests.map(&:query)).to eq([ { limit: 2 }, { after: "g2", limit: 2 } ])
+  end
+
+  it "each_group はブロックなしなら Enumerator を返し、必要になるまで次のページを取りに行かない" do
+    transport = FakeTransport.new(
+      FakeTransport.json(200, { "groups" => [ { "id" => "g1" } ], "next_after" => "g1", "has_more" => true }),
+      FakeTransport.json(200, { "groups" => [ { "id" => "g2" } ], "next_after" => "g2", "has_more" => false })
+    )
+
+    expect(build(transport).each_group.first["id"]).to eq("g1")
+    expect(transport.requests.size).to eq(1)
+  end
+
   it "エラー応答を種類ごとの例外にする" do
     conflict = FakeTransport.json(409, { "error" => { "code" => "stale_version", "message" => "古い" } })
     expect { build(FakeTransport.new(conflict)).as_system.update_member("m1", name: "x", version: 1) }
