@@ -7,7 +7,7 @@
 ## インストール
 
 ```ruby
-gem "appello-client", github: "aspick/appello-client", tag: "v0.1.1"
+gem "appello-client", github: "aspick/appello-client", tag: "v0.2.0"
 ```
 
 - 対応: Ruby 3.4 以上。実行時の依存 gem なし (HTTP は標準ライブラリ)

@@ -37,14 +37,14 @@ RSpec.describe Appello::Client do
       .to raise_error(Appello::Conflict) { |error| expect(error).to be_stale_version.and have_attributes(status: 409, message: "古い") }
 
     invalid = FakeTransport.json(422, { "error" => { "code" => "validation_failed", "message" => "NG", "details" => { "name" => [ "blank" ] } } })
-    expect { build(FakeTransport.new(invalid)).as_system.create_member("g1", { name: "" }) }
+    expect { build(FakeTransport.new(invalid)).as_system.create_member("g1", { name: "" }, external_id: 1) }
       .to raise_error(Appello::ValidationFailed) { |error| expect(error.details).to eq("name" => [ "blank" ]) }
   end
 
   it "接続エラーと 5xx は同じ冪等キーのままリトライする" do
     transport = FakeTransport.new(Appello::ConnectionError.new("timeout"), FakeTransport.json(503, {}), FakeTransport.json(201, { "id" => "m1" }))
 
-    expect(build(transport).as_system.create_member("g1", { name: "山田" })).to eq("id" => "m1")
+    expect(build(transport).as_system.create_member("g1", { name: "山田" }, external_id: 1)).to eq("id" => "m1")
     expect(transport.requests.map { |request| request.headers["Idempotency-Key"] }.uniq.size).to eq(1)
     expect(sleeps).to eq([ 0.2, 0.4 ])
   end

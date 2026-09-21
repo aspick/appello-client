@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- **破壊的変更**: `create_member` の `external_id:` を必須にした (`create_members` の各要素も同様)。作成とバインディングが不可分になり、誰にも使われていない名簿行が生まれない
+
 ## 0.1.1
 
 - `base_url` が `http://` のときは送信前に `Appello::ConfigurationError` を上げる (API キーが平文で流れるのを防ぐ)。`localhost` / `127.0.0.1` / `*.localhost` は対象外。それ以外で平文を許す場合は `config.allow_insecure_http = true`

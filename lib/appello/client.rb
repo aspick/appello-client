@@ -135,11 +135,13 @@ module Appello
       get("/v1/members/#{escape(id)}")
     end
 
-    def create_member(group_id, attributes, external_id: nil, idempotency_key: nil)
+    # external_id (アプリ側のローカル ID) は必須。作成とバインディングは不可分で、作ったクライアントがその名簿行を使う。
+    # アプリ側は「ローカルに行を作る → その ID を付けて呼ぶ → 失敗したらローカルの行をロールバックする」の順で使う。
+    def create_member(group_id, attributes, external_id:, idempotency_key: nil)
       post("/v1/groups/#{escape(group_id)}/members", with_external_id(attributes, external_id), idempotency_key: idempotency_key)
     end
 
-    # 全件成功か全件失敗のどちらか。各要素に external_id を含められる。
+    # 全件成功か全件失敗のどちらか。各要素に external_id が必須。
     def create_members(group_id, members, idempotency_key: nil)
       post("/v1/groups/#{escape(group_id)}/members/batch", { members: members }, idempotency_key: idempotency_key).fetch("members")
     end
