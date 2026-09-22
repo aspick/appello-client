@@ -87,4 +87,21 @@ RSpec.describe Appello::Client do
 
     expect(transport.requests.first.path).to eq("/v1/members/m1/identities/google-oauth2%7Cabc%2F1")
   end
+
+  it "モードの切り替えは switch_mode に mode を送る" do
+    transport = FakeTransport.new(FakeTransport.json(200, { "mode" => "authoritative" }), FakeTransport.json(200, { "mode" => "mirror" }))
+    client = build(transport).as_system
+
+    client.switch_group_to_authoritative("g1")
+    client.switch_group_to_mirror("g1")
+
+    expect(transport.requests.map { |request| [ request.path, JSON.parse(request.body)["mode"] ] })
+      .to eq([ [ "/v1/groups/g1/switch_mode", nil ], [ "/v1/groups/g1/switch_mode", "mirror" ] ])
+  end
+
+  it "409 は code で原因を見分けられる" do
+    conflict = FakeTransport.json(409, { "error" => { "code" => "group_linked", "message" => "linked" } })
+    expect { build(FakeTransport.new(conflict)).as_system.switch_group_to_mirror("g1") }
+      .to raise_error(Appello::Conflict) { |error| expect(error).to be_group_linked }
+  end
 end

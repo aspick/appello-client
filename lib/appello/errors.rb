@@ -30,11 +30,12 @@ module Appello
   class Unauthorized < ApiError; end
   class NotFound < ApiError; end
 
-  # 409。code で原因を見分ける: stale_version / group_authoritative / group_not_authoritative / request_in_progress / conflict
+  # 409。code で原因を見分ける: stale_version / group_authoritative / group_not_authoritative / group_linked / request_in_progress / conflict
   class Conflict < ApiError
     def stale_version? = code == "stale_version"
     def group_authoritative? = code == "group_authoritative"
     def group_not_authoritative? = code == "group_not_authoritative"
+    def group_linked? = code == "group_linked"
   end
 
   # 422。details に項目ごとのエラーが入る。

@@ -96,9 +96,15 @@ module Appello
       patch("/v1/groups/#{escape(id)}", attributes)
     end
 
-    # mirror → authoritative。以後このグループは /v1/refs から書き込めなくなる。
+    # mirror → authoritative。以後このグループは /v1/refs から書き込めなくなる。既に authoritative なら何もしない。
     def switch_group_to_authoritative(id)
       post("/v1/groups/#{escape(id)}/switch_mode")
+    end
+
+    # authoritative → mirror (切り戻し)。以後は再び /v1/refs から書き込む。既に mirror なら何もしない。
+    # 連結済み (2 つのクライアントが使っている) グループは戻せない (Conflict, code: group_linked)。
+    def switch_group_to_mirror(id)
+      post("/v1/groups/#{escape(id)}/switch_mode", { mode: "mirror" })
     end
 
     def bind_group(id, external_id)
@@ -162,11 +168,12 @@ module Appello
 
     # external_id (アプリ側のローカル ID) は必須。作成とバインディングは不可分で、作ったクライアントがその名簿行を使う。
     # アプリ側は「ローカルに行を作る → その ID を付けて呼ぶ → 失敗したらローカルの行をロールバックする」の順で使う。
+    # attributes に identities: [{ subject:, relationship:, app_role: }] を含めると、作成と同時に本人 (や保護者) を紐付ける。
     def create_member(group_id, attributes, external_id:, idempotency_key: nil)
       post("/v1/groups/#{escape(group_id)}/members", with_external_id(attributes, external_id), idempotency_key: idempotency_key)
     end
 
-    # 全件成功か全件失敗のどちらか。各要素に external_id が必須。
+    # 全件成功か全件失敗のどちらか。各要素に external_id が必須 (identities も各要素に含められる)。
     def create_members(group_id, members, idempotency_key: nil)
       post("/v1/groups/#{escape(group_id)}/members/batch", { members: members }, idempotency_key: idempotency_key).fetch("members")
     end
@@ -178,6 +185,9 @@ module Appello
     def reorder_members(group_id, member_ids)
       post("/v1/groups/#{escape(group_id)}/members/reorder", { member_ids: member_ids }).fetch("members")
     end
+
+    # 休団・復帰・退団は冪等で、既に目的の状態なら何もせずスナップショットを返す。
+    # 目的の状態へ遷移できない状態 (退団者の休団など) なら ValidationFailed (code: invalid_transition)。
 
     # 休団
     def suspend_member(id, version: nil)

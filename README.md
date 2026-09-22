@@ -7,7 +7,7 @@
 ## インストール
 
 ```ruby
-gem "appello-client", github: "aspick/appello-client", tag: "v0.2.0"
+gem "appello-client", github: "aspick/appello-client", tag: "v0.4.0"
 ```
 
 - 対応: Ruby 3.4 以上。実行時の依存 gem なし (HTTP は標準ライブラリ)
@@ -38,6 +38,16 @@ member.apply_appello_snapshot(snapshot)
 # ユーザーに紐づかない処理 (バックフィル、取り込みジョブ)
 Appello.client.as_system.upsert_member_ref(group.id, member.id, name: member.name, identities: [ { subject: user.id, app_role: "admin" } ])
 
+# 作成は external_id (手元の ID) が必須。identities を含めると本人の紐付けまで 1 回で済む
+appello.create_member(group.appello_id, { name: user.name, identities: [ { subject: user.id, app_role: "member" } ] }, external_id: member.id)
+
+# 在籍状態の遷移は冪等 (既に目的の状態なら何もしない)。途中で失敗した操作をそのままやり直せる
+appello.reinstate_member(member.appello_id)
+
+# 正本モードとミラーモードの切り替え (どちらも既に目的のモードなら何もしない)
+appello.switch_group_to_authoritative(group.appello_id)
+appello.switch_group_to_mirror(group.appello_id)
+
 # 読み取りは操作者なしで呼べる
 Appello.client.members(group.appello_id, status: "active", bound: false)
 
@@ -48,6 +58,17 @@ Appello.client.each_group { |group| ... } # 全件をメモリに載せたくな
 
 - POST には `Idempotency-Key` を自動で付けるので、タイムアウト後のリトライで二重作成にならない。ジョブの再実行でも同じ結果にしたいときは `idempotency_key:` を自分で渡す
 - 接続エラーと 429 / 502 / 503 / 504 は `max_retries` 回 (既定 2) までリトライする
+- 既定のタイムアウト (接続 2 秒 / 読み取り 10 秒) とリトライ回数はジョブ向け。ユーザーの操作の中で同期的に呼ぶ (write-through) なら、待ち時間を抑えた設定を別に持つとよい:
+
+```ruby
+config = Appello::Configuration.new.tap do |c|
+  c.base_url = ENV.fetch("APPELLO_URL")
+  c.api_key = ENV.fetch("APPELLO_API_KEY")
+  c.read_timeout = 5
+  c.max_retries = 1
+end
+Appello::Client.new(config: config).as(current_user.id)
+```
 - `base_url` は `https://` のみ受け付ける (API キーを平文で流さないため)。`localhost` は例外。検証環境などで平文を許す場合は `config.allow_insecure_http = true`
 
 ### エラー
@@ -55,7 +76,7 @@ Appello.client.each_group { |group| ... } # 全件をメモリに載せたくな
 | 例外 | 状況 |
 |---|---|
 | `Appello::ValidationFailed` | 422。`details` に項目ごとのエラー |
-| `Appello::Conflict` | 409。`stale_version?` / `group_authoritative?` / `group_not_authoritative?` で原因を見分ける |
+| `Appello::Conflict` | 409。`stale_version?` / `group_authoritative?` / `group_not_authoritative?` / `group_linked?` で原因を見分ける |
 | `Appello::NotFound` | 404。存在しないか、自クライアントがバインディングを持たないグループ |
 | `Appello::Unauthorized` | 401 |
 | `Appello::ServerError` | 5xx (リトライを使い切った後) |
